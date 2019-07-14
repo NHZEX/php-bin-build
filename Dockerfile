@@ -114,5 +114,5 @@ RUN sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list; \
     ls -l bin; \
     ldd /opt/php/bin/php;
 
-ENTRYPOINT ["docker-php-entrypoint"]
+ENTRYPOINT ["bash"]
 CMD ["/opt/php/bin/php", "-a"]
