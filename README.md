@@ -17,3 +17,5 @@ https://www.php.net/manual/zh/install.pecl.static.php
 https://github.com/docker-library/php/blob/master/7.2/buster/cli/Dockerfile  
 https://github.com/docker-library/php/tree/master/7.2/buster/apache  
 https://github.com/docker-library/php  
+
+https://github.com/DFabric/apps-static/blob/master/source/php-static/build.sh

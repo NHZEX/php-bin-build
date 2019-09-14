@@ -1,4 +1,4 @@
-FROM debian:buster-slim as build
+FROM ubuntu:18.04 as build
 
 # dependencies required for running "phpize"
 # (see persistent deps below)
@@ -6,7 +6,8 @@ ENV PHPIZE_DEPS  autoconf dpkg-dev file g++ gcc libc-dev make pkg-config re2c bi
 
 # persistent / runtime deps
 RUN set -eux; \
-    sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list; \
+    sed -i 's/archive.ubuntu.com/mirrors.ustc.edu.cn/g' /etc/apt/sources.list; \
+    sed -i 's/security.ubuntu.com/mirrors.ustc.edu.cn/g' /etc/apt/sources.list; \
 	apt update; \
 	apt install -y --no-install-recommends \
 		$PHPIZE_DEPS \
@@ -19,7 +20,7 @@ RUN set -eux; \
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-        libargon2-dev \
+        libargon2-0-dev \
         libcurl4-openssl-dev \
         libedit-dev \
         libsodium-dev \
@@ -29,12 +30,29 @@ RUN set -eux; \
         zlib1g-dev \
 # libedit required by readline
         libreadline-dev \
+# 190914
+        libsodium-dev \
+        libargon2-0-dev \
+        libedit-dev \
+        libcrypto++-dev \
+        libnghttp2-dev \
+        libidn2-0-dev \
+        librtmp-dev \
+        libpsl-dev \
+        libgssapi-krb5-2 \
+        libkrb5-dev \
+        libk5crypto3 \
+        libkrb5-3 \
+        krb5-gss-samples \
+        comerr-dev \
+        libalberta2-dev \
+        libldap2-dev \
         ${PHP_EXTRA_BUILD_DEPS:-} \
-    ; \
-    apt clean;
+    ;
+    # apt clean; # 加快运行速度
 
 ENV PHP_INI_DIR .
-ENV PHP_VERSION 7.2.20
+ENV PHP_VERSION 7.2.22
 
 WORKDIR /opt
 COPY src /opt/src
@@ -47,14 +65,14 @@ RUN set -eux; \
         ln -sT "/usr/include/$debMultiarch/curl" /usr/local/include/curl; \
     fi; \
 # src
-    cd /opt/src; \
-    mkdir -p /opt/src/php /opt/src/redis /opt/src/swoole; \
-    tar zxvf php-7.2.20.tar.gz -C /opt/src/php --strip-components=1; \
-    tar zxvf phpredis-4.3.0.tar.gz -C /opt/src/redis --strip-components=1; \
-    tar zxvf swoole-src-4.3.5.tar.gz -C /opt/src/swoole --strip-components=1; \
-    mv /opt/src/redis /opt/src/php/ext/redis; \
-    mv /opt/src/swoole /opt/src/php/ext/swoole; \
-    ls -l /opt/src/php/ext; \
+    cd /opt/src && ls -l; \
+    mkdir -p /opt/src/php; \
+    tar zxf php-src-php-7.2.22.tar.gz -C /opt/src/php --strip-components=1; \
+# php ext
+    mkdir -p /opt/src/php/ext/redis /opt/src/php/ext/swoole; \
+    tar zxf phpredis-4.3.0.tar.gz -C /opt/src/php/ext/redis --strip-components=1; \
+    tar zxf swoole-src-4.4.5.tar.gz -C /opt/src/php/ext/swoole --strip-components=1; \
+# 映射
 # php
     mkdir -p /opt/bin; \
     mkdir -p /opt/bin/conf.d; \
@@ -62,7 +80,12 @@ RUN set -eux; \
     ./buildconf --force; \
     ./configure --help | grep swoole; \
     (./configure \
-        CFLAGS=-static LDFLAGS=-static \
+        PHP_LDFLAGS=-all-static LIBS="$( \
+            pkg-config --libs --static \
+                libcurl libsodium libargon2 libcrypto++ \
+                krb5 \
+        )" \
+#        CFLAGS=-static LDFLAGS=-static \
         --build="$gnuArch" \
         --prefix=/opt/bin \
         --exec-prefix=/opt/bin \
@@ -85,13 +108,13 @@ RUN set -eux; \
         --with-sodium \
         \
         --enable-session \
-#        --with-curl \
+        --with-curl \
         --with-readline \
         --with-libedit \
         --with-openssl \
         --with-zlib \
-        \
-        --with-swoole --enable-swoole-static \
+# 第三方扩展
+        --enable-swoole \
         --enable-redis \
 # bundled pcre does not support JIT on s390x
 # https://manpages.debian.org/stretch/libpcre3-dev/pcrejit.3.en.html#AVAILABILITY_OF_JIT_SUPPORT
@@ -99,18 +122,20 @@ RUN set -eux; \
         --with-libdir="lib/$debMultiarch" \
         \
         ${PHP_EXTRA_CONFIGURE_ARGS:-} \
+#    || cat config.log && false
     ); \
-    make -j "$(nproc)"; \
+    make -j "$(nproc)" PHP_LDFLAGS=-all-static; \
     make install;
 
-FROM debian:buster-slim
+FROM ubuntu:18.04
 
 COPY --from=build /opt/bin /opt/php
 COPY ./docker-php-entrypoint /usr/local/bin/
 
 WORKDIR /opt/php
 
-RUN sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list; \
+RUN sed -i 's/archive.ubuntu.com/mirrors.ustc.edu.cn/g' /etc/apt/sources.list; \
+    sed -i 's/security.ubuntu.com/mirrors.ustc.edu.cn/g' /etc/apt/sources.list; \
     ls -l bin; \
     ldd /opt/php/bin/php;
 
