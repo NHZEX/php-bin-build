@@ -82,13 +82,12 @@ RUN set -eux; \
     (./configure \
         PHP_LDFLAGS=-all-static LIBS="$( \
             pkg-config --libs --static \
-                libcurl libsodium libargon2 libcrypto++ \
-                krb5 \
+                libcurl \
         )" \
-        --with-libdir="lib/$debMultiarch" \
+#        --with-libdir="lib/$debMultiarch" \
 #        CFLAGS=-static LDFLAGS=-static \
         --build="$gnuArch" \
-        --prefix=/opt/bin \
+        --prefix='/' \
         --exec-prefix=/opt/bin \
         --with-config-file-path="$PHP_INI_DIR" \
         --with-config-file-scan-dir="$PHP_INI_DIR/conf.d" \
