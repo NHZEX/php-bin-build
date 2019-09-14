@@ -1,4 +1,4 @@
-FROM ubuntu:18.04 as build
+FROM debian:buster-slim as build
 
 # dependencies required for running "phpize"
 # (see persistent deps below)
@@ -6,8 +6,7 @@ ENV PHPIZE_DEPS  autoconf dpkg-dev file g++ gcc libc-dev make pkg-config re2c bi
 
 # persistent / runtime deps
 RUN set -eux; \
-    sed -i 's/archive.ubuntu.com/mirrors.ustc.edu.cn/g' /etc/apt/sources.list; \
-    sed -i 's/security.ubuntu.com/mirrors.ustc.edu.cn/g' /etc/apt/sources.list; \
+    sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list; \
 	apt update; \
 	apt install -y --no-install-recommends \
 		$PHPIZE_DEPS \
@@ -47,6 +46,7 @@ RUN set -eux; \
         comerr-dev \
         libalberta2-dev \
         libldap2-dev \
+        libssh2-1-dev \
         ${PHP_EXTRA_BUILD_DEPS:-} \
     ;
     # apt clean; # 加快运行速度
@@ -85,6 +85,7 @@ RUN set -eux; \
                 libcurl libsodium libargon2 libcrypto++ \
                 krb5 \
         )" \
+        --with-libdir="lib/$debMultiarch" \
 #        CFLAGS=-static LDFLAGS=-static \
         --build="$gnuArch" \
         --prefix=/opt/bin \
@@ -119,23 +120,20 @@ RUN set -eux; \
 # bundled pcre does not support JIT on s390x
 # https://manpages.debian.org/stretch/libpcre3-dev/pcrejit.3.en.html#AVAILABILITY_OF_JIT_SUPPORT
         $(test "$gnuArch" = 's390x-linux-gnu' && echo '--without-pcre-jit') \
-        --with-libdir="lib/$debMultiarch" \
         \
         ${PHP_EXTRA_CONFIGURE_ARGS:-} \
-#    || cat config.log && false
-    ); \
+    ) || (cat config.log && false); \
     make -j "$(nproc)" PHP_LDFLAGS=-all-static; \
     make install;
 
-FROM ubuntu:18.04
+FROM debian:buster-slim
 
 COPY --from=build /opt/bin /opt/php
 COPY ./docker-php-entrypoint /usr/local/bin/
 
 WORKDIR /opt/php
 
-RUN sed -i 's/archive.ubuntu.com/mirrors.ustc.edu.cn/g' /etc/apt/sources.list; \
-    sed -i 's/security.ubuntu.com/mirrors.ustc.edu.cn/g' /etc/apt/sources.list; \
+RUN sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list; \
     ls -l bin; \
     ldd /opt/php/bin/php;
 
