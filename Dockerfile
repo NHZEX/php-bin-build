@@ -16,10 +16,20 @@ RUN set -eux; \
 	; \
 	apt clean;
 
+# Apply stack smash protection to functions using local buffers and alloca()
+# Make PHP's main executable position-independent (improves ASLR security mechanism, and has no performance impact on x86_64)
+# Enable optimization (-O2)
+# Enable linker optimization (this sorts the hash buckets to improve cache locality, and is non-default)
+# Adds GNU HASH segments to generated executables (this is used if present, and is much faster than sysv hash; in this configuration, sysv hash is also generated)
+# https://github.com/docker-library/php/issues/272
+ENV PHP_CFLAGS="-fstack-protector-strong -fpic -fpie -O2"
+ENV PHP_CPPFLAGS="$PHP_CFLAGS"
+ENV PHP_LDFLAGS="-Wl,-O1 -Wl,--hash-style=both -pie"
+
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-        libargon2-0-dev \
+        libargon2-dev \
         libcurl4-openssl-dev \
         libedit-dev \
         libsodium-dev \
@@ -31,8 +41,6 @@ RUN set -eux; \
         libreadline-dev \
 # 190914
         libsodium-dev \
-        libargon2-0-dev \
-        libedit-dev \
         libcrypto++-dev \
         libnghttp2-dev \
         libidn2-0-dev \
@@ -48,7 +56,8 @@ RUN set -eux; \
         libldap2-dev \
         libssh2-1-dev \
         ${PHP_EXTRA_BUILD_DEPS:-} \
-    ;
+    ; \
+    rm -rf /var/lib/apt/lists/*;
     # apt clean; # 加快运行速度
 
 ENV PHP_INI_DIR .
@@ -64,6 +73,20 @@ RUN set -eux; \
     if [ ! -d /usr/include/curl ]; then \
         ln -sT "/usr/include/$debMultiarch/curl" /usr/local/include/curl; \
     fi; \
+# 编译依赖静态库
+    cd /opt/src; \
+    mkdir -p /opt/src/krd5; \
+    tar zxf krb5-krb5-1.16.3-final.tar.gz -C /opt/src/krd5 --strip-components=1; \
+    cd /opt/src/krd5/src; \
+    autoreconf; \
+    ./configure \
+        --enable-static \
+        --disable-shared \
+        --enable-maintainer-mode \
+        --enable-dns-for-realm \
+        ; \
+    make -j "$(nproc)"; \
+    make install; \
 # src
     cd /opt/src && ls -l; \
     mkdir -p /opt/src/php; \
@@ -73,27 +96,40 @@ RUN set -eux; \
     tar zxf phpredis-4.3.0.tar.gz -C /opt/src/php/ext/redis --strip-components=1; \
     tar zxf swoole-src-4.4.5.tar.gz -C /opt/src/php/ext/swoole --strip-components=1; \
 # 映射
+    ld -static -lgssapi_krb5; \
+    ld -static -lkrb5; \
+    ld -static -lk5crypto; \
+    ld -static -lkrb5support; \
 # php
     mkdir -p /opt/bin; \
     mkdir -p /opt/bin/conf.d; \
     cd /opt/src/php; \
     ./buildconf --force; \
     ./configure --help | grep swoole; \
+    export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/:/usr/local/lib/:/usr/local/lib/krb5; \
     (./configure \
-        PHP_LDFLAGS=-all-static LIBS="$( \
+        LIBS="$( \
             pkg-config --libs --static \
                 libcurl \
+                libsodium libargon2 libcrypto++ krb5 \
         )" \
-#        --with-libdir="lib/$debMultiarch" \
-#        CFLAGS=-static LDFLAGS=-static \
+#        PHP_LDFLAGS=-all-static \
+        CFLAGS="-static $PHP_CFLAGS" \
+        LDFLAGS="-static $PHP_LDFLAGS" \
+        CPPFLAGS="$PHP_CPPFLAGS" \
+#        CFLAGS="-static $PHP_CFLAGS" \
+#        LDFLAGS="-static $PHP_LDFLAGS" \
         --build="$gnuArch" \
-        --prefix='/' \
+        --prefix='/opt/bin' \
         --exec-prefix=/opt/bin \
+        --with-libdir="lib/$debMultiarch" \
         --with-config-file-path="$PHP_INI_DIR" \
         --with-config-file-scan-dir="$PHP_INI_DIR/conf.d" \
-        --enable-static=yes \
+        --enable-static \
         --enable-cli --disable-cgi \
         --disable-all \
+# make sure invalid --configure-flags are fatal errors intead of just warnings
+		--enable-option-checking=fatal \
 # https://github.com/docker-library/php/issues/439
         --with-mhash \
 # --enable-ftp is included here because ftp_ssl_connect() needs ftp to be compiled statically (see https://github.com/docker-library/php/issues/236)
@@ -107,18 +143,17 @@ RUN set -eux; \
 # https://wiki.php.net/rfc/libsodium
         --with-sodium \
         \
-        --enable-session \
         --with-curl \
-        --with-readline \
+#        --with-readline \
         --with-libedit \
         --with-openssl \
         --with-zlib \
-# 第三方扩展
-        --enable-swoole \
-        --enable-redis \
 # bundled pcre does not support JIT on s390x
 # https://manpages.debian.org/stretch/libpcre3-dev/pcrejit.3.en.html#AVAILABILITY_OF_JIT_SUPPORT
         $(test "$gnuArch" = 's390x-linux-gnu' && echo '--without-pcre-jit') \
+# 第三方扩展
+        --enable-swoole \
+        --enable-redis \
         \
         ${PHP_EXTRA_CONFIGURE_ARGS:-} \
     ) || (cat config.log && false); \
