@@ -62,6 +62,8 @@ RUN set -eux; \
         readline-dev \
         libedit \
         libedit-dev \
+        libsodium-dev \
+        argon2-dev \
     ;
 
 # Apply stack smash protection to functions using local buffers and alloca()
