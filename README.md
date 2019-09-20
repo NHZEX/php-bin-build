@@ -27,3 +27,6 @@ https://github.com/krb5/krb5
 
 https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=439039
 https://stackoverflow.com/questions/15906203/compile-libgssapi-krb5-a-static-library-for-centos-6
+
+
+https://pkgs.alpinelinux.org/package/edge/community/x86_64/php7-static

@@ -64,6 +64,7 @@ RUN set -eux; \
         libedit-dev \
         libsodium-dev \
         argon2-dev \
+        ncurses \
     ;
 
 # Apply stack smash protection to functions using local buffers and alloca()
