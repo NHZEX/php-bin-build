@@ -94,7 +94,7 @@ RUN set -eux; \
 # php ext
     mkdir -p /opt/src/php/ext/redis /opt/src/php/ext/swoole; \
     tar zxf phpredis-5.0.2.tar.gz -C /opt/src/php/ext/redis --strip-components=1; \
-    tar zxf swoole-src-4.4.6.tar.gz -C /opt/src/php/ext/swoole --strip-components=1; \
+    tar zxf swoole-src-4.4.8.tar.gz -C /opt/src/php/ext/swoole --strip-components=1; \
 # 映射
 #    ld -static -lgssapi_krb5; \
 #    ld -static -lkrb5; \
@@ -116,7 +116,7 @@ RUN set -eux; \
 #        PHP_LDFLAGS=-all-static \
         CFLAGS="-static $PHP_CFLAGS" \
         LDFLAGS="-static $PHP_LDFLAGS" \
-        CPPFLAGS="$PHP_CPPFLAGS" \
+        CPPFLAGS="-static $PHP_CPPFLAGS" \
 #        CFLAGS="-static $PHP_CFLAGS" \
 #        LDFLAGS="-static $PHP_LDFLAGS" \
         --build="$gnuArch" \
@@ -144,26 +144,26 @@ RUN set -eux; \
         --with-sodium \
         \
 #        --with-curl \
-        --with-readline \
-        --with-libedit \
+#        --with-readline \
+#        --with-libedit \
         --with-openssl \
         --with-zlib \
 # bundled pcre does not support JIT on s390x
 # https://manpages.debian.org/stretch/libpcre3-dev/pcrejit.3.en.html#AVAILABILITY_OF_JIT_SUPPORT
         $(test "$gnuArch" = 's390x-linux-gnu' && echo '--without-pcre-jit') \
 # 第三方扩展
-        --enable-swoole \
-        --enable-redis \
+#        --enable-swoole \
+#        --enable-redis \
         \
         ${PHP_EXTRA_CONFIGURE_ARGS:-} \
     ) || (cat config.log && false); \
-    make -j "$(nproc)" PHP_LDFLAGS=-all-static; \
+    make EXTRA_LD_FLAGS_PROGRAM=--all-static -j "$(nproc)"; \
     make install;
 
 FROM debian:buster-slim
 
 COPY --from=build /opt/bin /opt/php
-COPY ./docker-php-entrypoint /usr/local/bin/
+#COPY ./docker-php-entrypoint /usr/local/bin/
 
 WORKDIR /opt/php
 
