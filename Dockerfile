@@ -74,32 +74,32 @@ RUN set -eux; \
         ln -sT "/usr/include/$debMultiarch/curl" /usr/local/include/curl; \
     fi; \
 # 编译依赖静态库
-    cd /opt/src; \
-    mkdir -p /opt/src/krd5; \
-    tar zxf krb5-krb5-1.16.3-final.tar.gz -C /opt/src/krd5 --strip-components=1; \
-    cd /opt/src/krd5/src; \
-    autoreconf; \
-    ./configure \
-        --enable-static \
-        --disable-shared \
-        --enable-maintainer-mode \
-        --enable-dns-for-realm \
-        ; \
-    make -j "$(nproc)"; \
-    make install; \
+#    cd /opt/src; \
+#    mkdir -p /opt/src/krd5; \
+#    tar zxf krb5-krb5-1.16.3-final.tar.gz -C /opt/src/krd5 --strip-components=1; \
+#    cd /opt/src/krd5/src; \
+#    autoreconf; \
+#    ./configure \
+#        --enable-static \
+#        --disable-shared \
+#        --enable-maintainer-mode \
+#        --enable-dns-for-realm \
+#        ; \
+#    make -j "$(nproc)"; \
+#    make install; \
 # src
     cd /opt/src && ls -l; \
     mkdir -p /opt/src/php; \
     tar zxf php-src-php-7.2.22.tar.gz -C /opt/src/php --strip-components=1; \
 # php ext
     mkdir -p /opt/src/php/ext/redis /opt/src/php/ext/swoole; \
-    tar zxf phpredis-4.3.0.tar.gz -C /opt/src/php/ext/redis --strip-components=1; \
-    tar zxf swoole-src-4.4.5.tar.gz -C /opt/src/php/ext/swoole --strip-components=1; \
+    tar zxf phpredis-5.0.2.tar.gz -C /opt/src/php/ext/redis --strip-components=1; \
+    tar zxf swoole-src-4.4.6.tar.gz -C /opt/src/php/ext/swoole --strip-components=1; \
 # 映射
-    ld -static -lgssapi_krb5; \
-    ld -static -lkrb5; \
-    ld -static -lk5crypto; \
-    ld -static -lkrb5support; \
+#    ld -static -lgssapi_krb5; \
+#    ld -static -lkrb5; \
+#    ld -static -lk5crypto; \
+#    ld -static -lkrb5support; \
 # php
     mkdir -p /opt/bin; \
     mkdir -p /opt/bin/conf.d; \
@@ -110,8 +110,8 @@ RUN set -eux; \
     (./configure \
         LIBS="$( \
             pkg-config --libs --static \
-                libcurl \
-                libsodium libargon2 libcrypto++ krb5 \
+                 \
+                libsodium libargon2 libcrypto++ \
         )" \
 #        PHP_LDFLAGS=-all-static \
         CFLAGS="-static $PHP_CFLAGS" \
@@ -143,8 +143,8 @@ RUN set -eux; \
 # https://wiki.php.net/rfc/libsodium
         --with-sodium \
         \
-        --with-curl \
-#        --with-readline \
+#        --with-curl \
+        --with-readline \
         --with-libedit \
         --with-openssl \
         --with-zlib \
